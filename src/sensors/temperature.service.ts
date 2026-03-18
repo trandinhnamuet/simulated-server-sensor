@@ -10,6 +10,14 @@ interface LastReading {
   timestamp: number; // milliseconds
 }
 
+// Box-Muller transform to produce standard normal samples
+function normalRandom(): number {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random(); // Converting [0,1) to (0,1)
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
 /**
  * Service mô phỏng cảm biến nhiệt độ
  * Sinh ra dữ liệu nhiệt độ tự nhiên biến động theo thời gian
@@ -30,40 +38,39 @@ export class TemperatureService {
 
     let newValue: number;
 
+    // OU model parameters (per second)
+    const theta = 0.02; // mean reversion rate
+    let sigma = 0.05; // volatility (°C per sqrt(s))
+
+    // Apply n scaling to sigma when n >=1
+    if (n !== undefined && !Number.isNaN(n) && n >= 1) {
+      sigma = sigma / n;
+    }
+
     if (this.lastReading === null) {
-      // Lần call đầu tiên
+      // First call
       newValue = TEMPERATURE_CONFIG.BASE;
     } else {
-      // Tính thời gian chênh lệch (giây)
       const timeDiffMs = currentTime - this.lastReading.timestamp;
-      const timeDiffSec = timeDiffMs / 1000;
+      const dt = Math.max(timeDiffMs / 1000, 0); // seconds
 
-      // Tính phần trăm lệch tối đa: (timeDiff/10)^2 * 100%
-      let maxFluctuationPercent = Math.pow(timeDiffSec / 10, 2) * 100;
-      // Nếu có parameter n >= 1 thì chia phần trăm cho n
-      if (n !== undefined && !Number.isNaN(n) && n >= 1) {
-        maxFluctuationPercent = maxFluctuationPercent / n;
-      }
-
-      // Chuyển phần trăm thành giá trị tuyệt đối
-      const maxFluctuationValue =
-        (this.lastReading.value * maxFluctuationPercent) / 100;
-
-      if (timeDiffSec < 2) {
-        // Nếu < 2 giây: 50% trả kết quả cũ, 50% random trong range
-        const returnOldValue = Math.random() < 0.5;
-        if (returnOldValue) {
+      if (dt < 2) {
+        // <2s: 50% return old value
+        if (Math.random() < 0.5) {
           newValue = this.lastReading.value;
         } else {
-          // Random giá trị trong khoảng lệch
-          const fluctuation =
-            (Math.random() - 0.5) * 2 * maxFluctuationValue;
-          newValue = this.lastReading.value + fluctuation;
+          // OU single-step
+          const z = normalRandom();
+          const meanRevert = theta * (TEMPERATURE_CONFIG.BASE - this.lastReading.value) * dt;
+          const stochastic = sigma * Math.sqrt(dt) * z;
+          newValue = this.lastReading.value + meanRevert + stochastic;
         }
       } else {
-        // Nếu >= 2 giây: random trong khoảng lệch
-        const fluctuation = (Math.random() - 0.5) * 2 * maxFluctuationValue;
-        newValue = this.lastReading.value + fluctuation;
+        // >=2s: OU update
+        const z = normalRandom();
+        const meanRevert = theta * (TEMPERATURE_CONFIG.BASE - this.lastReading.value) * dt;
+        const stochastic = sigma * Math.sqrt(dt) * z;
+        newValue = this.lastReading.value + meanRevert + stochastic;
       }
     }
 
@@ -79,6 +86,8 @@ export class TemperatureService {
       value: newValue,
       timestamp: currentTime,
     };
+
+    // helper: normal random via Box-Muller (defined after function)
 
     // Xác định trạng thái
     let status: 'normal' | 'warning' | 'critical' = 'normal';

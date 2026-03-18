@@ -10,6 +10,14 @@ interface LastReading {
   timestamp: number; // milliseconds
 }
 
+// reuse same normalRandom helper
+function normalRandom(): number {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
 /**
  * Service mô phỏng cảm biến độ ẩm
  * Sinh ra dữ liệu độ ẩm tự nhiên biến động theo thời gian
@@ -30,40 +38,33 @@ export class HumidityService {
 
     let newValue: number;
 
+    // OU params for humidity
+    const theta = 0.01; // mean reversion rate
+    let sigma = 0.3; // volatility (% per sqrt(s))
+    if (n !== undefined && !Number.isNaN(n) && n >= 1) {
+      sigma = sigma / n;
+    }
+
     if (this.lastReading === null) {
-      // Lần call đầu tiên
       newValue = HUMIDITY_CONFIG.BASE;
     } else {
-      // Tính thời gian chênh lệch (giây)
       const timeDiffMs = currentTime - this.lastReading.timestamp;
-      const timeDiffSec = timeDiffMs / 1000;
+      const dt = Math.max(timeDiffMs / 1000, 0);
 
-      // Tính phần trăm lệch tối đa: (timeDiff/10)^2 * 100%
-      let maxFluctuationPercent = Math.pow(timeDiffSec / 10, 2) * 100;
-      // Nếu có parameter n >= 1 thì chia phần trăm cho n
-      if (n !== undefined && !Number.isNaN(n) && n >= 1) {
-        maxFluctuationPercent = maxFluctuationPercent / n;
-      }
-
-      // Chuyển phần trăm thành giá trị tuyệt đối
-      const maxFluctuationValue =
-        (this.lastReading.value * maxFluctuationPercent) / 100;
-
-      if (timeDiffSec < 2) {
-        // Nếu < 2 giây: 50% trả kết quả cũ, 50% random trong range
-        const returnOldValue = Math.random() < 0.5;
-        if (returnOldValue) {
+      if (dt < 2) {
+        if (Math.random() < 0.5) {
           newValue = this.lastReading.value;
         } else {
-          // Random giá trị trong khoảng lệch
-          const fluctuation =
-            (Math.random() - 0.5) * 2 * maxFluctuationValue;
-          newValue = this.lastReading.value + fluctuation;
+          const z = normalRandom();
+          const meanRevert = theta * (HUMIDITY_CONFIG.BASE - this.lastReading.value) * dt;
+          const stochastic = sigma * Math.sqrt(dt) * z;
+          newValue = this.lastReading.value + meanRevert + stochastic;
         }
       } else {
-        // Nếu >= 2 giây: random trong khoảng lệch
-        const fluctuation = (Math.random() - 0.5) * 2 * maxFluctuationValue;
-        newValue = this.lastReading.value + fluctuation;
+        const z = normalRandom();
+        const meanRevert = theta * (HUMIDITY_CONFIG.BASE - this.lastReading.value) * dt;
+        const stochastic = sigma * Math.sqrt(dt) * z;
+        newValue = this.lastReading.value + meanRevert + stochastic;
       }
     }
 
