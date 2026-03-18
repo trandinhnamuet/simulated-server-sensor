@@ -27,7 +27,7 @@ export class SensorsController {
    * API lấy dữ liệu độ ẩm hiện tại
    * GET /sensors/humidity
    */
-  @Get('humidity')
+  @Get('humidity/1')
   getHumidity(): SensorReadingDto {
     return this.humidityService.getReading();
   }
