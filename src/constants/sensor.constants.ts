@@ -29,5 +29,5 @@ export const HUMIDITY_CONFIG = {
   // Đơn vị đo
   UNIT: '%',
   // Tên cảm biến
-  SENSOR_NAME: 'Humidity Sensor - Server Room',
+  SENSOR_NAME: 'Humidity Sensor - Server Room 1',
 };
