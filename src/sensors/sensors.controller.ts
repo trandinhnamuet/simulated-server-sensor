@@ -7,7 +7,7 @@ import { SensorReadingDto } from '../dto/sensor-reading.dto';
  * Controller cho các API cảm biến
  * Cung cấp 2 endpoint để lấy dữ liệu nhiệt độ và độ ẩm
  */
-@Controller('sensors/1')
+@Controller('sensors')
 export class SensorsController {
   constructor(
     private readonly temperatureService: TemperatureService,
