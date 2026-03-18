@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { TemperatureService } from './temperature.service';
 import { HumidityService } from './humidity.service';
 import { SensorReadingDto } from '../dto/sensor-reading.dto';
@@ -19,8 +19,9 @@ export class SensorsController {
    * GET /sensors/temperature
    */
   @Get('temperature/1')
-  getTemperature(): SensorReadingDto {
-    return this.temperatureService.getReading();
+  getTemperature(@Query('n') n?: string): SensorReadingDto {
+    const factor = n ? parseFloat(n) : undefined;
+    return this.temperatureService.getReading(factor);
   }
 
   /**
@@ -28,7 +29,8 @@ export class SensorsController {
    * GET /sensors/humidity
    */
   @Get('humidity/1')
-  getHumidity(): SensorReadingDto {
-    return this.humidityService.getReading();
+  getHumidity(@Query('n') n?: string): SensorReadingDto {
+    const factor = n ? parseFloat(n) : undefined;
+    return this.humidityService.getReading(factor);
   }
 }

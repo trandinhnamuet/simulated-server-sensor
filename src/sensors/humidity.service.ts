@@ -24,7 +24,7 @@ export class HumidityService {
    * Lấy dữ liệu độ ẩm hiện tại
    * Giá trị biến động dựa trên thời gian kể từ lần call trước
    */
-  getReading(): SensorReadingDto {
+  getReading(n?: number): SensorReadingDto {
     const startTime = Date.now();
     const currentTime = Date.now();
 
@@ -39,7 +39,11 @@ export class HumidityService {
       const timeDiffSec = timeDiffMs / 1000;
 
       // Tính phần trăm lệch tối đa: (timeDiff/10)^2 * 100%
-      const maxFluctuationPercent = Math.pow(timeDiffSec / 10, 2) * 100;
+      let maxFluctuationPercent = Math.pow(timeDiffSec / 10, 2) * 100;
+      // Nếu có parameter n >= 1 thì chia phần trăm cho n
+      if (n !== undefined && !Number.isNaN(n) && n >= 1) {
+        maxFluctuationPercent = maxFluctuationPercent / n;
+      }
 
       // Chuyển phần trăm thành giá trị tuyệt đối
       const maxFluctuationValue =
